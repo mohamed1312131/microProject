@@ -2,12 +2,121 @@ version: '3.8'
 
 services:
 
+  config-server:
+    image: openjdk:17
+    container_name: config-server
+    volumes:
+      - ./config-server:/app
+    working_dir: /app
+    command: ["java", "-jar", "config-server.jar"]
+    ports:
+      - "8888:8888"
+    networks:
+      - backend
+
+  discovery-service:
+    image: openjdk:17
+    container_name: discovery-service
+    volumes:
+      - ./discovery-service:/app
+    working_dir: /app
+    command: ["java", "-jar", "discovery-server.jar"]
+    ports:
+      - "8761:8761"
+    depends_on:
+      - config-server
+    networks:
+      - backend
+
+  api-gateway:
+    image: openjdk:17
+    container_name: api-gateway
+    volumes:
+      - ./api-gateway:/app
+    working_dir: /app
+    command: ["java", "-jar", "api-gateway.jar"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      - discovery-service
+      - config-server
+    networks:
+      - backend
+
+  pack-service:
+    image: openjdk:17
+    container_name: pack-service
+    volumes:
+      - ./pack-service:/app
+    working_dir: /app
+    command: ["java", "-jar", "pack-service.jar"]
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongo
+      - discovery-service
+      - config-server
+    networks:
+      - backend
+
+  appointment-service:
+    image: openjdk:17
+    container_name: appointment-service
+    volumes:
+      - ./appointment-service:/app
+    working_dir: /app
+    command: ["java", "-jar", "appointment-service.jar"]
+    ports:
+      - "8082:8082"
+    depends_on:
+      - mongo
+      - discovery-service
+      - config-server
+    networks:
+      - backend
+
+  user-service:
+    image: openjdk:17
+    container_name: user-service
+    volumes:
+      - ./user-service:/app
+    working_dir: /app
+    command: ["java", "-jar", "user-service.jar"]
+    ports:
+      - "8083:8083"
+    depends_on:
+      - mongo
+      - discovery-service
+      - config-server
+    networks:
+      - backend
+
+  plan-service:
+    image: openjdk:17
+    container_name: plan-service
+    volumes:
+      - ./plan-service:/app
+    working_dir: /app
+    command: ["java", "-jar", "plan-service.jar"]
+    ports:
+      - "8084:8084"
+    depends_on:
+      - mongo
+      - rabbitmq
+      - discovery-service
+      - config-server
+    networks:
+      - backend
+
   mongo:
     image: mongo
     container_name: mongo
     ports:
       - "27017:27017"
-    restart: always
+    networks:
+      - backend
+    volumes:
+      - mongo-data:/data/db
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -15,65 +124,14 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
-    restart: always
-
-  discovery-service:
-    build: ./discovery-server
-    container_name: discovery-service
-    ports:
-      - "8761:8761"
     environment:
-      - SPRING_PROFILES_ACTIVE=default
-    restart: always
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - backend
 
-  config-server:
-    build: ./config-server
-    container_name: config-server
-    ports:
-      - "8888:8888"
-    depends_on:
-      - discovery-service
-    environment:
-      - SPRING_PROFILES_ACTIVE=default
-    restart: always
+volumes:
+  mongo-data:
 
-  user-service:
-    build: ./userService
-    container_name: user-service
-    ports:
-      - "8081:8081"
-    depends_on:
-      - config-server
-      - discovery-service
-      - mongo
-    environment:
-      - SPRING_PROFILES_ACTIVE=default
-    restart: always
-
-  plan-service:
-    build: ./plan-service
-    container_name: plan-service
-    ports:
-      - "8082:8082"
-    depends_on:
-      - config-server
-      - discovery-service
-      - mongo
-      - rabbitmq
-    environment:
-      - SPRING_PROFILES_ACTIVE=default
-    restart: always
-
-  api-gateway:
-    build: ./api-gateway
-    container_name: api-gateway
-    ports:
-      - "8080:8080"
-    depends_on:
-      - config-server
-      - discovery-service
-      - user-service
-      - plan-service
-    environment:
-      - SPRING_PROFILES_ACTIVE=default
-    restart: always
+networks:
+  backend:
